@@ -41,7 +41,11 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
   }
 
   // Decoración de inputs
-  InputDecoration _inputDecoration(String label, IconData icon, {Widget? suffix}) {
+  InputDecoration _inputDecoration(
+    String label,
+    IconData icon, {
+    Widget? suffix,
+  }) {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white70, fontSize: 13),
@@ -98,7 +102,12 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
       );
 
       if (nuevoUsuario != null) {
-        _notificar('¡Usuario "${nuevoUsuario.username}" creado!', Colors.green);
+        _notificar(
+          '¡Usuario "${nuevoUsuario.username}" creado con éxito!',
+          Colors.green,
+        );
+
+        // Esperar y volver al login
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) Navigator.pop(context);
         });
@@ -123,10 +132,11 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
 
   Future<void> _seleccionarFecha() async {
     final DateTime hoy = DateTime.now();
+    final DateTime inicial = DateTime(hoy.year - 18, hoy.month, hoy.day);
 
     final fecha = await showDatePicker(
       context: context,
-      initialDate: _fechaNacimiento ?? (hoy.isBefore(DateTime(2000)) ? hoy : DateTime(2000)),
+      initialDate: _fechaNacimiento ?? inicial,
       firstDate: DateTime(1940),
       lastDate: hoy,
       builder: (context, child) => Theme(
@@ -154,7 +164,8 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
             child: Image.asset(
               'assets/images/tapiz_bg.png',
               fit: BoxFit.cover,
-              errorBuilder: (context, e, s) => Container(color: const Color(0xFF10121D)),
+              errorBuilder: (context, e, s) =>
+                  Container(color: const Color(0xFF10121D)),
             ),
           ),
           Center(
@@ -180,13 +191,24 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Text('REGISTRO', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
+            const Text(
+              'REGISTRO',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+            ),
             const SizedBox(height: 25),
 
             TextFormField(
               controller: _nombreController,
               style: const TextStyle(color: Colors.white),
-              decoration: _inputDecoration('Nombre Completo', Icons.badge_outlined),
+              decoration: _inputDecoration(
+                'Nombre Completo',
+                Icons.badge_outlined,
+              ),
               validator: (v) => v!.isEmpty ? 'Requerido' : null,
             ),
             const SizedBox(height: 16),
@@ -195,7 +217,10 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
               controller: _correoController,
               keyboardType: TextInputType.emailAddress,
               style: const TextStyle(color: Colors.white),
-              decoration: _inputDecoration('Correo Electrónico', Icons.email_outlined),
+              decoration: _inputDecoration(
+                'Correo Electrónico',
+                Icons.email_outlined,
+              ),
               validator: (v) => v!.contains('@') ? null : 'Correo inválido',
             ),
             const SizedBox(height: 16),
@@ -210,7 +235,9 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
                     dropdownColor: const Color(0xFF1E2130),
                     style: const TextStyle(color: Colors.white, fontSize: 13),
                     decoration: _inputDecoration('Rol', Icons.work_outline),
-                    items: ['Supervisor', 'Operario'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                    items: ['Supervisor', 'Operario']
+                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                        .toList(),
                     onChanged: (v) => setState(() => _rolSeleccionado = v!),
                   ),
                 ),
@@ -225,7 +252,10 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
                         _fechaNacimiento == null
                             ? 'DD/MM/AA'
                             : '${_fechaNacimiento!.day}/${_fechaNacimiento!.month}/${_fechaNacimiento!.year}',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -237,7 +267,10 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
             TextFormField(
               controller: _usuarioController,
               style: const TextStyle(color: Colors.white),
-              decoration: _inputDecoration('Usuario', Icons.account_circle_outlined),
+              decoration: _inputDecoration(
+                'Usuario',
+                Icons.account_circle_outlined,
+              ),
               validator: (v) => v!.length < 4 ? 'Mínimo 4 caracteres' : null,
             ),
             const SizedBox(height: 16),
@@ -246,11 +279,17 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
               controller: _passController,
               obscureText: _obscurePass,
               style: const TextStyle(color: Colors.white),
-              decoration: _inputDecoration('Contraseña', Icons.lock_outline,
-                  suffix: IconButton(
-                    icon: Icon(_obscurePass ? Icons.visibility_off : Icons.visibility, color: Colors.white38, size: 20),
-                    onPressed: () => setState(() => _obscurePass = !_obscurePass),
-                  )
+              decoration: _inputDecoration(
+                'Contraseña',
+                Icons.lock_outline,
+                suffix: IconButton(
+                  icon: Icon(
+                    _obscurePass ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.white38,
+                    size: 20,
+                  ),
+                  onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                ),
               ),
               validator: (v) => v!.length < 6 ? 'Mínimo 6 caracteres' : null,
             ),
@@ -260,11 +299,18 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
               controller: _confirmPassController,
               obscureText: _obscureConfirm,
               style: const TextStyle(color: Colors.white),
-              decoration: _inputDecoration('Repetir Contraseña', Icons.lock_reset,
-                  suffix: IconButton(
-                    icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility, color: Colors.white38, size: 20),
-                    onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                  )
+              decoration: _inputDecoration(
+                'Repetir Contraseña',
+                Icons.lock_reset,
+                suffix: IconButton(
+                  icon: Icon(
+                    _obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.white38,
+                    size: 20,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscureConfirm = !_obscureConfirm),
+                ),
               ),
               validator: (v) => v!.isEmpty ? 'Confirme contraseña' : null,
             ),
@@ -281,7 +327,10 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
             CheckboxListTile(
               value: _aceptaCondiciones,
               onChanged: (v) => setState(() => _aceptaCondiciones = v ?? false),
-              title: const Text('Acepto términos y condiciones', style: TextStyle(color: Colors.white60, fontSize: 12)),
+              title: const Text(
+                'Acepto términos y condiciones',
+                style: TextStyle(color: Colors.white60, fontSize: 12),
+              ),
               controlAffinity: ListTileControlAffinity.leading,
               activeColor: Colors.orange,
               contentPadding: EdgeInsets.zero,
@@ -294,23 +343,40 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: (_isLoading || !_aceptaCondiciones) ? null : _onAceptarRegistro,
+                onPressed: (_isLoading || !_aceptaCondiciones)
+                    ? null
+                    : _onAceptarRegistro,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: Colors.orange.withOpacity(0.12),
                   disabledForegroundColor: Colors.white24,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                 ),
                 child: _isLoading
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('REGISTRAR', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'REGISTRAR',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
               ),
             ),
 
             TextButton(
               onPressed: _isLoading ? null : () => Navigator.pop(context),
-              child: const Text('¿Ya tienes cuenta? Inicia Sesión', style: TextStyle(color: Colors.orange, fontSize: 14)),
+              child: const Text(
+                '¿Ya tienes cuenta? Inicia Sesión',
+                style: TextStyle(color: Colors.orange, fontSize: 14),
+              ),
             ),
           ],
         ),
@@ -328,7 +394,10 @@ class _RegistroFormPageState extends State<RegistroFormPage> {
           activeColor: Colors.orange,
           onChanged: (v) => setState(() => _genero = v!),
         ),
-        Text(texto, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        Text(
+          texto,
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
       ],
     );
   }

@@ -11,14 +11,17 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  // Controladores
   final _usuarioController = TextEditingController();
   final _passController = TextEditingController();
+
   final AuthService _authService = AuthService();
 
   bool _obscurePassword = true;
   bool _mantenerSesion = false;
   bool _isLoading = false;
 
+  // DECORACIÓN INPUTS
   InputDecoration _inputDecoration({
     required String label,
     required IconData icon,
@@ -26,26 +29,24 @@ class _LoginPageState extends State<LoginPage> {
   }) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
-      prefixIcon: Icon(icon, color: Colors.orange),
+      labelStyle: const TextStyle(color: Colors.white),
+      prefixIcon: Icon(icon, color: Colors.white),
       suffixIcon: suffixIcon,
-      filled: true,
-      fillColor: Colors.white.withOpacity(0.05),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Colors.white38, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.white, width: 1.8),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Colors.orange, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red, width: 1.8),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red, width: 2),
       ),
     );
   }
@@ -56,6 +57,7 @@ class _LoginPageState extends State<LoginPage> {
     _cargarSesion();
   }
 
+  // CARGAR SESIÓN DESDE SHARED PREFERENCES
   Future<void> _cargarSesion() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -64,37 +66,49 @@ class _LoginPageState extends State<LoginPage> {
 
       if (mantener && usuario != null) {
         _usuarioController.text = usuario;
-        setState(() => _mantenerSesion = true);
+        _mantenerSesion = true;
 
+        // Verificar si la sesión sigue activa en la base de datos
         final sesionActiva = await _authService.verificarSesionActiva();
 
         if (sesionActiva && mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const HomePage()),
+            MaterialPageRoute(builder: (_) => HomePage(nombreUsuario: usuario)),
           );
         }
       }
     } catch (e) {
-      debugPrint('Error al cargar sesión: $e');
+      print('Error al cargar sesión: $e');
     }
   }
 
+  // MÉTODO LOGIN CON VALIDACIÓN Y BASE DE DATOS
   Future<void> _login() async {
     final username = _usuarioController.text.trim();
     final password = _passController.text.trim();
 
-    if (username.isEmpty || password.isEmpty) {
-      _mostrarError('Por favor, complete todos los campos');
+    // Validaciones
+    if (username.isEmpty) {
+      _mostrarError('Ingrese su usuario');
       return;
     }
 
-    setState(() => _isLoading = true);
+    if (password.isEmpty) {
+      _mostrarError('Ingrese su contraseña');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
+      // Intentar login con el servicio de autenticación
       final usuario = await _authService.login(username, password);
 
       if (usuario != null) {
+        // Guardar preferencias si se seleccionó "mantener sesión"
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('mantener_sesion', _mantenerSesion);
 
@@ -105,18 +119,23 @@ class _LoginPageState extends State<LoginPage> {
           await prefs.setBool('mantener_sesion', false);
         }
 
+        // Navegar a la pantalla principal
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const HomePage()),
+          MaterialPageRoute(builder: (_) => HomePage(nombreUsuario: username)),
         );
       } else {
         _mostrarError('Usuario o contraseña incorrectos');
       }
     } catch (e) {
-      _mostrarError('Error de conexión con el servidor');
+      _mostrarError('Error de conexión: ${e.toString()}');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -124,9 +143,8 @@ class _LoginPageState extends State<LoginPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(mensaje),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -138,13 +156,13 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       body: Stack(
         children: [
-          // Fondo
           Positioned.fill(
             child: Image.asset(
               'assets/images/tapiz_bg.png',
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) =>
-                  Container(color: const Color(0xFF1A1C2E)),
+              errorBuilder: (context, error, stackTrace) {
+                return Container(color: Colors.grey[900]);
+              },
             ),
           ),
           Center(
@@ -156,55 +174,53 @@ class _LoginPageState extends State<LoginPage> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Card(
-                  elevation: 15, // UX: Sombra más pronunciada
-                  color: const Color(
-                    0xCC282C44,
-                  ), // UX: Color oscuro con mejor opacidad
+                  elevation: 10,
+                  color: const Color.fromARGB(66, 24, 27, 53),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
+                    borderRadius: BorderRadius.circular(22),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 32,
-                    ),
+                    padding: const EdgeInsets.all(24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Logo y Título
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Image.asset(
                               'assets/icon/icon_regcons.png',
                               height: 50,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(
-                                    Icons.engineering,
-                                    size: 50,
-                                    color: Colors.orange,
-                                  ),
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(
+                                  Icons.construction,
+                                  size: 50,
+                                  color: Colors.orange,
+                                );
+                              },
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 10),
                             const Text(
                               'REGCONS',
                               style: TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.normal,
-                                letterSpacing: 1.5,
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                fontStyle: FontStyle.italic,
+                                fontFamily: 'monospace',
                                 color: Colors.white,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+
+                        const SizedBox(height: 12),
+
                         const Text(
                           'Lidera tu construcción',
-                          style: TextStyle(color: Colors.white60, fontSize: 14),
+                          style: TextStyle(color: Colors.white),
                         ),
-                        const SizedBox(height: 35),
 
-                        // Inputs
+                        const SizedBox(height: 28),
+
                         TextField(
                           controller: _usuarioController,
                           style: const TextStyle(color: Colors.white),
@@ -215,7 +231,9 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           enabled: !_isLoading,
                         ),
-                        const SizedBox(height: 20),
+
+                        const SizedBox(height: 16),
+
                         TextField(
                           controller: _passController,
                           obscureText: _obscurePassword,
@@ -229,116 +247,112 @@ class _LoginPageState extends State<LoginPage> {
                                 _obscurePassword
                                     ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
-                                color: Colors.white60,
+                                color: Colors.white,
                               ),
-                              onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword,
-                              ),
+                              onPressed: () {
+                                if (!_isLoading) {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                }
+                              },
                             ),
                           ),
                           enabled: !_isLoading,
                           onSubmitted: (_) => _login(),
                         ),
 
-                        // Checkbox
-                        Theme(
-                          data: ThemeData(
-                            unselectedWidgetColor: Colors.white38,
+                        const SizedBox(height: 12),
+
+                        // MANTENER SESIÓN
+                        CheckboxListTile(
+                          value: _mantenerSesion,
+                          onChanged: _isLoading
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _mantenerSesion = value ?? false;
+                                  });
+                                },
+                          title: const Text(
+                            'Mantener sesión activa',
+                            style: TextStyle(color: Colors.white),
                           ),
-                          child: CheckboxListTile(
-                            value: _mantenerSesion,
-                            onChanged: _isLoading
-                                ? null
-                                : (v) => setState(() => _mantenerSesion = v!),
-                            title: const Text(
-                              'Mantener sesión activa',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                            ),
-                            activeColor: Colors.orange,
-                            controlAffinity: ListTileControlAffinity.leading,
-                            contentPadding: EdgeInsets.zero,
-                          ),
+                          activeColor: Colors.orange,
+                          checkColor: Colors.white,
+                          controlAffinity: ListTileControlAffinity.leading,
                         ),
+
                         const SizedBox(height: 24),
 
-                        // Botón Login
+                        // BOTÓN LOGIN
                         SizedBox(
                           width: double.infinity,
-                          height: 55,
+                          height: 50,
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _login,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.orange,
                               foregroundColor: Colors.white,
-                              elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(15),
                               ),
                             ),
                             child: _isLoading
                                 ? const SizedBox(
-                                    height: 24,
-                                    width: 24,
+                                    height: 20,
+                                    width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
                                         Colors.white,
                                       ),
                                     ),
                                   )
                                 : const Text(
-                                    'INICIAR SESIÓN',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1,
-                                    ),
+                                    'Iniciar Sesión',
+                                    style: TextStyle(fontSize: 16),
                                   ),
                           ),
                         ),
-                        const SizedBox(height: 16),
 
-                        // Botón Registrarse
+                        const SizedBox(height: 12),
+
+                        // BOTÓN REGISTRARSE
                         SizedBox(
                           width: double.infinity,
                           height: 50,
                           child: OutlinedButton(
                             onPressed: _isLoading
                                 ? null
-                                : () =>
-                                      Navigator.pushNamed(context, '/register'),
+                                : () {
+                                    Navigator.pushNamed(context, '/register');
+                                  },
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.orange,
-                              side: const BorderSide(
-                                color: Colors.orange,
-                                width: 1.5,
-                              ),
+                              side: const BorderSide(color: Colors.orange),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(15),
                               ),
                             ),
-                            child: const Text(
-                              'Registrarse',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                            child: const Text('Registrarse'),
                           ),
                         ),
+
                         const SizedBox(height: 16),
 
-                        // Olvidé contraseña
+                        // ENLACE OLVIDÉ CONTRASEÑA
                         TextButton(
                           onPressed: _isLoading
                               ? null
-                              : () => _mostrarError('Función en desarrollo.'),
-                          child: Text(
+                              : () {
+                                  _mostrarError(
+                                    'Función en desarrollo. Contacte al administrador.',
+                                  );
+                                },
+                          child: const Text(
                             '¿Olvidaste tu contraseña?',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.4),
-                              fontSize: 13,
-                            ),
+                            style: TextStyle(color: Colors.blueGrey),
                           ),
                         ),
                       ],

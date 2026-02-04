@@ -54,7 +54,7 @@ class _NewsPageState extends State<NewsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // AnnotatedRegion permite cambiar el color de la hora/iconos de la barra superior
+    // cambiar el color de la hora/iconos de la barra superior
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light.copyWith(
         statusBarColor: Colors.transparent, // Barra transparente
@@ -65,32 +65,11 @@ class _NewsPageState extends State<NewsPage> {
         backgroundColor: const Color(0xFF10121D),
         body: RefreshIndicator(
           color: Colors.orange,
-          edgeOffset: 100, // Ajuste para que no choque con el AppBar
+          edgeOffset: 100,
           onRefresh: _refreshNews,
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // AppBar Moderno
-              SliverAppBar(
-                expandedHeight: 120.0,
-                floating: true,
-                pinned: true,
-                backgroundColor: const Color(0xFF10121D),
-                elevation: 0,
-                flexibleSpace: FlexibleSpaceBar(
-                  centerTitle: true,
-                  title: const Text(
-                    'NOTICIAS DE INTERÉS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  background: Container(color: const Color(0xFF10121D)),
-                ),
-              ),
 
               // Contenido de noticias
               FutureBuilder<List<NewsModel>>(

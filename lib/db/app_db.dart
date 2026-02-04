@@ -12,7 +12,7 @@ class AppDatabase {
 
   static Database? _database;
 
-  // CONSTANTES DE TABLAS
+  // DEFINICIÓN DE TABLAS
   static const String _tablaRoles = '''
   CREATE TABLE roles (
     id_rol INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,9 +33,8 @@ class AppDatabase {
     password_salt TEXT NOT NULL,
     fecha_ultimo_cambio_password INTEGER,
     acepta_terminos INTEGER NOT NULL CHECK(acepta_terminos IN (0,1)),
-    estado TEXT NOT NULL CHECK(
-      estado IN ('ACTIVO','INACTIVO','BLOQUEADO')
-    ) DEFAULT 'ACTIVO',
+    estado TEXT NOT NULL CHECK(estado IN ('ACTIVO','INACTIVO','BLOQUEADO'))
+      DEFAULT 'ACTIVO',
     fecha_creacion INTEGER NOT NULL,
     id_rol INTEGER NOT NULL,
     FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
@@ -72,8 +71,8 @@ class AppDatabase {
 
   static const String _tablaUsuarioObra = '''
   CREATE TABLE usuario_obra (
-    id_usuario INTEGER,
-    id_obra INTEGER,
+    id_usuario INTEGER NOT NULL,
+    id_obra INTEGER NOT NULL,
     PRIMARY KEY (id_usuario, id_obra),
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario),
     FOREIGN KEY (id_obra) REFERENCES obras(id_obra)
@@ -105,6 +104,7 @@ class AppDatabase {
     descripcion TEXT,
     evidencia_foto TEXT,
     estado TEXT DEFAULT 'REGISTRADO',
+    sincronizado INTEGER DEFAULT 0,
     FOREIGN KEY (id_actividad) REFERENCES actividades(id_actividad),
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
   );
@@ -118,7 +118,7 @@ class AppDatabase {
     tipo TEXT CHECK(tipo IN ('INCIDENTE','CONDICION_INSEGURA')),
     severidad TEXT CHECK(severidad IN ('BAJA','MEDIA','ALTA','CRITICA')),
     descripcion TEXT,
-    fecha_evento INTEGER,
+    fecha_evento INTEGER NOT NULL,
     evidencias_foto TEXT,
     estado TEXT DEFAULT 'REPORTADO',
     sincronizado INTEGER DEFAULT 0,
@@ -127,14 +127,13 @@ class AppDatabase {
   );
   ''';
 
-  // MÉTODOS DE BASE DE DATOS
+  // ACCESO A LA BASE DE DATOS
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB();
     return _database!;
   }
 
-  // INICIALIZACIÓN
   Future<Database> _initDB() async {
     final path = join(await getDatabasesPath(), 'regcons_flutter.db');
     return await openDatabase(
@@ -142,6 +141,7 @@ class AppDatabase {
       version: 1,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -149,8 +149,8 @@ class AppDatabase {
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
+  // CREACIÓN INICIAL
   Future<void> _onCreate(Database db, int version) async {
-    // Crear tablas
     await db.execute(_tablaRoles);
     await db.execute(_tablaUsuarios);
     await db.execute(_tablaSesiones);
@@ -160,93 +160,78 @@ class AppDatabase {
     await db.execute(_tablaAvances);
     await db.execute(_tablaReportesSeguridad);
 
-    // Crear índices
     await db.execute('CREATE INDEX idx_usuarios_rol ON usuarios(id_rol);');
+    await db.execute('CREATE INDEX idx_usuarios_username ON usuarios(username);');
+    await db.execute('CREATE INDEX idx_usuarios_email ON usuarios(email);');
+
+    await db.execute('CREATE INDEX idx_sesiones_usuario ON sesiones(id_usuario);');
+    await db.execute('CREATE INDEX idx_actividades_obra ON actividades(id_obra);');
     await db.execute('CREATE INDEX idx_avances_actividad ON avances(id_actividad);');
     await db.execute('CREATE INDEX idx_avances_usuario ON avances(id_usuario);');
-    await db.execute('CREATE INDEX idx_actividades_obra ON actividades(id_obra);');
     await db.execute('CREATE INDEX idx_reportes_obra ON reportes_seguridad(id_obra);');
-    await db.execute('CREATE INDEX idx_sesiones_usuario ON sesiones(id_usuario);');
 
-    // Insertar datos iniciales
+    await db.execute('''
+      CREATE UNIQUE INDEX idx_avance_diario
+      ON avances(id_actividad, id_usuario, fecha);
+    ''');
+
     await _insertarRolesIniciales(db);
     await _insertarUsuarioAdmin(db);
   }
 
-  // MÉTODOS PRIVADOS PARA DATOS INICIALES
+  // MIGRACIONES FUTURAS
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Reservado para futuras versiones
+  }
+
+  // DATOS ADMINISTRADOR
   Future<void> _insertarRolesIniciales(Database db) async {
     final count = await db.rawQuery('SELECT COUNT(*) FROM roles');
-    final int rowCount = Sqflite.firstIntValue(count) ?? 0;
+    final rowCount = Sqflite.firstIntValue(count) ?? 0;
 
     if (rowCount == 0) {
-      await db.insert('roles', {
-        'nombre': 'ADMIN',
-        'descripcion': 'Administrador del sistema'
-      });
-
-      await db.insert('roles', {
-        'nombre': 'SUPERVISOR',
-        'descripcion': 'Supervisor de obra'
-      });
-
-      await db.insert('roles', {
-        'nombre': 'OPERARIO',
-        'descripcion': 'Operario de construcción'
-      });
-
-      print('Roles iniciales insertados: ADMIN, SUPERVISOR, OPERARIO');
+      await db.insert('roles', {'nombre': 'ADMIN', 'descripcion': 'Administrador'});
+      await db.insert('roles', {'nombre': 'SUPERVISOR', 'descripcion': 'Supervisor de obra'});
+      await db.insert('roles', {'nombre': 'OPERARIO', 'descripcion': 'Operario'});
     }
   }
 
   Future<void> _insertarUsuarioAdmin(Database db) async {
     final count = await db.rawQuery(
-        'SELECT COUNT(*) FROM usuarios WHERE username = ?',
-        ['admin']
+      'SELECT COUNT(*) FROM usuarios WHERE username = ?',
+      ['admin'],
     );
-    final int rowCount = Sqflite.firstIntValue(count) ?? 0;
 
-    if (rowCount == 0) {
-      // Obtener id del rol ADMIN
-      final roles = await db.query(
-        'roles',
-        where: 'nombre = ?',
-        whereArgs: ['ADMIN'],
-      );
+    if ((Sqflite.firstIntValue(count) ?? 0) == 0) {
+      final rol = await db.query('roles', where: 'nombre = ?', whereArgs: ['ADMIN']);
+      if (rol.isEmpty) return;
 
-      if (roles.isNotEmpty) {
-        final idRolAdmin = roles.first['id_rol'] as int;
+      final salt = _generateSalt();
+      final hash = _hashPassword('admin123', salt);
 
-        // Generar hash para contraseña
-        final salt = _generateSalt();
-        final hash = _hashPassword('admin123', salt);
-
-        await db.insert('usuarios', {
-          'username': 'admin',
-          'email': 'admin@regcons.com',
-          'nombre_completo': 'Administrador del Sistema',
-          'password_hash': hash,
-          'password_salt': salt,
-          'acepta_terminos': 1,
-          'estado': 'ACTIVO',
-          'fecha_creacion': DateTime.now().millisecondsSinceEpoch,
-          'id_rol': idRolAdmin,
-        });
-
-        print('Usuario admin creado: admin / admin123');
-      }
+      await db.insert('usuarios', {
+        'username': 'admin',
+        'email': 'admin@regcons.com',
+        'nombre_completo': 'Administrador del Sistema',
+        'password_hash': hash,
+        'password_salt': salt,
+        'acepta_terminos': 1,
+        'estado': 'ACTIVO',
+        'fecha_creacion': DateTime.now().millisecondsSinceEpoch,
+        'id_rol': rol.first['id_rol'],
+      });
     }
   }
 
-  // FUNCIONES DE HASHING (privadas, solo para uso interno)
+  // SEGURIDAD
   String _generateSalt() {
     final random = Random.secure();
-    final saltBytes = List<int>.generate(32, (_) => random.nextInt(256));
-    return base64Encode(saltBytes);
+    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+    return base64Encode(bytes);
   }
 
   String _hashPassword(String password, String salt) {
     final bytes = utf8.encode(password + salt);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
+    return sha256.convert(bytes).toString();
   }
 }

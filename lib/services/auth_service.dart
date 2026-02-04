@@ -81,7 +81,10 @@ class AuthService {
     required String email,
     required String nombreCompleto,
     required String password,
-    required bool aceptaTerminos, required String genero, DateTime? fechaNacimiento, required String rol,
+    required bool aceptaTerminos,
+    required String genero,
+    DateTime? fechaNacimiento,
+    required String rol,
   }) async {
     await _initialize();
 
@@ -94,30 +97,35 @@ class AuthService {
     }
 
     final db = await AppDatabase().database;
+
+    // rol
     final roles = await db.query(
       'roles',
       where: 'nombre = ?',
-      whereArgs: ['SUPERVISOR'],
+      whereArgs: [rol.toUpperCase()],
     );
 
     if (roles.isEmpty) {
-      throw Exception('No se encontró el rol SUPERVISOR');
+      throw Exception('No se encontró el rol $rol');
     }
 
-    final idRolSupervisor = roles.first['id_rol'] as int;
+    final idRolEncontrado = roles.first['id_rol'] as int;
     final salt = PasswordHasher.generateSalt();
     final hash = PasswordHasher.hashPassword(password, salt);
 
+    // Creacion de usuario
     final nuevoUsuario = Usuario(
       username: username,
       email: email,
       nombreCompleto: nombreCompleto,
+      genero: genero,
+      fechaNacimiento: fechaNacimiento,
       passwordHash: hash,
       passwordSalt: salt,
       aceptaTerminos: aceptaTerminos,
       estado: 'ACTIVO',
       fechaCreacion: DateTime.now(),
-      idRol: idRolSupervisor,
+      idRol: idRolEncontrado,
     );
 
     final id = await _usuarioDao.insert(nuevoUsuario);
